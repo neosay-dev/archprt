@@ -19,14 +19,13 @@ sudo mount --bind "$root" "$root"
 for d in proc sys dev dev/pts; do sudo mount --bind "/$d" "$root/$d"; done
 sudo mv "$root/etc/resolv.conf" "$work/resolv.conf"
 sudo cp -L /etc/resolv.conf "$root/etc/resolv.conf"
-trap 'for d in dev/pts dev sys proc; do sudo umount -l "$root/$d" || true; done; sudo umount -l "$root" || true' EXIT
+trap 'sudo umount -R -l "$root" || true' EXIT
 
 sudo chroot "$root" /bin/bash /setup.sh
 
 sudo rm "$root/setup.sh" "$root/etc/resolv.conf"
 sudo mv "$work/resolv.conf" "$root/etc/resolv.conf"
-for d in dev/pts dev sys proc; do sudo umount "$root/$d"; done
-sudo umount "$root"
+sudo umount -R -l "$root"
 trap - EXIT
 
 cp "$root/boot/Image" "$out/Image"

@@ -30,4 +30,5 @@ systemctl mask serial-getty@ttyAMA0.service  # ttyAMA0 is the boot.log file on t
 systemctl enable systemd-networkd systemd-resolved archprt-resize archprt-grow
 
 pacman -Scc --noconfirm
+gpgconf --homedir /etc/pacman.d/gnupg --kill all  # pacman-key's agent keeps the chroot's /dev busy
 rm -rf /var/cache/pacman/pkg/* /var/log/journal/* /root/.bash_history
