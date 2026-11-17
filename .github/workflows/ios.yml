@@ -9,6 +9,11 @@ on:
 
 env:
   UTM_VERSION: v5.0.9
+  # Every build is a release Quay Store picks up: 0.1.<run>, build number = run.
+  VERSION: 0.1.${{ github.run_number }}
+
+permissions:
+  contents: write
 
 jobs:
   ios:
@@ -19,6 +24,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: QEMU frameworks from UTM
         env:
@@ -51,6 +58,7 @@ jobs:
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             -skipPackagePluginValidation -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             build 2>&1 | tee ../xcode-ios-build.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" | head -n 200
           test "${PIPESTATUS[0]}" = 0
 
@@ -77,3 +85,12 @@ jobs:
           name: ArchPrt-ipa-${{ github.run_number }}
           path: ArchPrt.ipa
           compression-level: 0
+
+      - name: Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prev=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          notes=$(git log --format='- %s' ${prev:+$prev..}HEAD -- ios .github/workflows/ios.yml)
+          gh release create "v$VERSION" ArchPrt.ipa --title "ArchPrt $VERSION" --notes "${notes:-Сборка $VERSION}" --target "$GITHUB_SHA"
