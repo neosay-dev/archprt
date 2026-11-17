@@ -25,7 +25,7 @@ struct Root: View {
                 Setup(
                     title: "Arch Linux",
                     text: error.map { "Не получилось: \($0)\n\nПопробуй ещё раз: уже скачанные файлы заново не качаются." }
-                        ?? "Лёгкий Arch Linux ARM: около 400 МБ скачать, 1,5 ГБ на диске. Скачай, пока приложение открыто.",
+                        ?? "Лёгкий Arch Linux ARM: 230 МБ скачать, 1,6 ГБ на диске. Скачай, пока приложение открыто.",
                     button: "Скачать"
                 ) { vm.download() }
             case .downloading(let step, let progress):
