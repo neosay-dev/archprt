@@ -28,8 +28,8 @@ sudo mv "$work/resolv.conf" "$root/etc/resolv.conf"
 sudo umount -R -l "$root"
 trap - EXIT
 
-cp "$root/boot/Image" "$out/Image"
-cp "$root/boot/initramfs-linux.img" "$out/initramfs.img"
+sudo cp "$root/boot/Image" "$out/Image"
+sudo cp "$root/boot/initramfs-linux.img" "$out/initramfs.img"
 
 # Tight image; the app makes the file 16 GB sparse and archprt-grow.service fills it.
 mb=$(sudo du -sm "$root" | cut -f1)
