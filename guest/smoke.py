@@ -11,7 +11,7 @@ os.truncate(disk, 16 << 30)  # same as the app
 con, rsz = os.path.join(tmp, "c"), os.path.join(tmp, "r")
 
 qemu = subprocess.Popen([
-    "qemu-system-aarch64", "-M", "virt", "-cpu", "max,pauth=off",
+    "qemu-system-aarch64", "-M", "virt", "-cpu", "cortex-a76",
     "-accel", "tcg,thread=multi,tb-size=256", "-smp", "4", "-m", "1024",
     "-nodefaults", "-no-user-config", "-display", "none", "-monitor", "none",
     "-kernel", os.path.join(out, "Image"), "-initrd", os.path.join(out, "initramfs.img"),

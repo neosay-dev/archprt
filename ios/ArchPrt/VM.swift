@@ -95,8 +95,9 @@ final class VM: ObservableObject {
         return [
             "qemu-system-aarch64",
             "-M", "virt",
-            // pauth=off: emulating pointer authentication is one of the costliest parts of TCG.
-            "-cpu", "max,pauth=off",
+            // Cortex-A76 (ARMv8.2): no pointer auth/SVE/MOPS to emulate, so TCG is faster, and `max`'s
+            // FEAT_MOPS memset crashed the guest kernel while loading modules (QEMU 8.2 in CI).
+            "-cpu", "cortex-a76",
             // split-wx: RW/RX mirror mapping, the only way to JIT with just a debugger attached (as UTM does).
             "-accel", "tcg,thread=multi,tb-size=256,split-wx=on",
             "-smp", "\(cores)",
