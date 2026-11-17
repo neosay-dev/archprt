@@ -1,0 +1,9 @@
+[Unit]
+Description=Grow the root filesystem to the ArchPrt disk size
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/resize2fs /dev/vda
+
+[Install]
+WantedBy=multi-user.target

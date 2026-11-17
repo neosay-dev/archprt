@@ -1,0 +1,58 @@
+# XcodeGen spec. CI drops QEMU frameworks (from UTM.ipa) and the guest (Image, initramfs, arch.img)
+# into the built .app afterwards, see .github/workflows/ios.yml.
+name: ArchPrt
+options:
+  developmentLanguage: ru
+  bundleIdPrefix: dev.neosay
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    exactVersion: 1.99.3
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+targets:
+  ArchPrt:
+    type: application
+    platform: iOS
+    sources:
+      - path: ArchPrt
+    dependencies:
+      - package: SwiftTerm
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.neosay.archprt
+        PRODUCT_NAME: ArchPrt
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_OBJC_BRIDGING_HEADER: ArchPrt/Launcher/ArchPrt-Bridging-Header.h
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+        ENABLE_BITCODE: NO
+        SUPPORTS_MACCATALYST: NO
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    info:
+      path: ArchPrt/Info.plist
+      properties:
+        CFBundleDisplayName: ArchPrt
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UIStatusBarStyle: UIStatusBarStyleLightContent
+        UIUserInterfaceStyle: Dark
+        ITSAppUsesNonExemptEncryption: false
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight

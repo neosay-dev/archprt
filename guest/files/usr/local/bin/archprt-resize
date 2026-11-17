@@ -1,0 +1,9 @@
+#!/bin/sh
+# Asks the app for the terminal size, then applies every "rows cols" line it sends to the console (SIGWINCH included).
+port=/dev/virtio-ports/dev.archprt.resize
+while [ ! -e "$port" ]; do sleep 1; done
+exec 3<>"$port"
+printf '?\n' >&3
+while read -r rows cols <&3; do
+	stty -F /dev/hvc0 rows "$rows" cols "$cols"
+done

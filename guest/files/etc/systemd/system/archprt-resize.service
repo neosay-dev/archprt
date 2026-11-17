@@ -1,0 +1,10 @@
+[Unit]
+Description=ArchPrt terminal size
+
+[Service]
+ExecStart=/usr/local/bin/archprt-resize
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
