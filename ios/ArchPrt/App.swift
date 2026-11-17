@@ -59,17 +59,29 @@ struct Root: View {
 }
 
 private struct Booting: View {
+    @EnvironmentObject var vm: VM
+
     var body: some View {
-        VStack(spacing: 14) {
-            Text("ArchPrt")
-                .font(.system(size: 34, weight: .semibold))
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Text("ArchPrt").font(.system(size: 28, weight: .semibold))
+                Spacer()
                 ProgressView().tint(.secondary)
-                Text("Загрузка Arch Linux")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            }
+            // Live kernel/systemd output from the guest console, newest at the bottom.
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    Text(vm.bootLog.isEmpty ? "Запуск ядра…" : vm.bootLog)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .id("log")
+                }
+                .onChange(of: vm.bootLog) { _ in proxy.scrollTo("log", anchor: .bottom) }
             }
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black)
     }

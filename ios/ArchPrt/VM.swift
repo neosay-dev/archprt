@@ -21,6 +21,10 @@ final class VM: ObservableObject {
     }
 
     private var pending: [UInt8] = []
+    /// Boot messages for the loading screen (ANSI stripped, last ~12 KB).
+    @Published private(set) var bootLog = ""
+    private var markerTail: [UInt8] = []
+    private static let loginMarker = Array("(automatic login)".utf8)
     private var console: Int32 = -1
     private var resizer: Int32 = -1
     private var size = (cols: 80, rows: 24)
@@ -105,7 +109,7 @@ final class VM: ObservableObject {
             "-nodefaults", "-no-user-config", "-display", "none", "-monitor", "none",
             "-kernel", docs.appendingPathComponent("Image").path,
             "-initrd", docs.appendingPathComponent("initramfs.img").path,
-            "-append", "root=/dev/vda rw rootwait console=ttyAMA0 console=hvc0 loglevel=3 systemd.show_status=auto",
+            "-append", "root=/dev/vda rw rootwait console=ttyAMA0 console=hvc0 loglevel=6 systemd.show_status=1",
             "-serial", "file:" + docs.appendingPathComponent("boot.log").path,
             "-device", "virtio-serial-pci",
             "-chardev", "socket,id=con,path=\(console),server=on,wait=off",
@@ -141,10 +145,27 @@ final class VM: ObservableObject {
             if n <= 0 { break }
             let chunk = Array(buf[0..<n])
             DispatchQueue.main.async {
-                if self.state == .booting { self.state = .running }
-                if let out = self.onOutput { out(chunk[...]) } else { self.pending += chunk }
+                if self.state == .booting { self.bootOutput(chunk) } else { self.feed(chunk) }
             }
         }
+    }
+
+    private func feed(_ chunk: [UInt8]) {
+        if let out = onOutput { out(chunk[...]) } else { pending += chunk }
+    }
+
+    /// While booting, output goes to the loading screen; the terminal starts right after agetty's autologin line.
+    private func bootOutput(_ chunk: [UInt8]) {
+        let window = markerTail + chunk
+        if let hit = window.firstRange(of: VM.loginMarker) {
+            state = .running
+            feed(Array(window[hit.upperBound...]))
+            return
+        }
+        markerTail = Array(window.suffix(VM.loginMarker.count))
+        let text = String(decoding: chunk, as: UTF8.self)
+            .replacingOccurrences(of: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]|\u{1B}\\][^\u{7}]*\u{7}|\r", with: "", options: .regularExpression)
+        bootLog = String((bootLog + text).suffix(12_000))
     }
 
     /// The guest's archprt-resize asks ("?") whenever it (re)starts; we answer with the terminal size.
