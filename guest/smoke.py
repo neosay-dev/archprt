@@ -15,7 +15,7 @@ qemu = subprocess.Popen([
     "-accel", "tcg,thread=multi,tb-size=256", "-smp", "4", "-m", "1024",
     "-nodefaults", "-no-user-config", "-display", "none", "-monitor", "none",
     "-kernel", os.path.join(out, "Image"), "-initrd", os.path.join(out, "initramfs.img"),
-    "-append", "root=/dev/vda rw rootwait console=ttyAMA0 console=hvc0 loglevel=3 systemd.show_status=auto",
+    "-append", "root=/dev/vda rw rootwait earlycon=pl011,0x9000000 console=hvc0 console=ttyAMA0 loglevel=6 systemd.show_status=1",
     "-serial", "file:" + os.path.join(out, "boot.log"),
     "-device", "virtio-serial-pci",
     "-chardev", f"socket,id=con,path={con},server=on,wait=off", "-device", "virtconsole,chardev=con",

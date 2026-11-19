@@ -23,6 +23,7 @@ final class VM: ObservableObject {
     private var pending: [UInt8] = []
     /// Boot messages for the loading screen (ANSI stripped, last ~12 KB).
     @Published private(set) var bootLog = ""
+    private(set) var bootStarted = Date()
     private var markerTail: [UInt8] = []
     private static let loginMarker = Array("(automatic login)".utf8)
     private var console: Int32 = -1
@@ -40,7 +41,10 @@ final class VM: ObservableObject {
 
     /// App launch: boot right away if Arch is downloaded, otherwise offer the download.
     func launch() {
-        if guestInstalled { start() } else if state == .booting { state = .needsDownload(error: nil) }
+        guard state == .booting else { return }
+        if guestInstalled && FileManager.default.fileExists(atPath: verifiedMarker.path) { start() }
+        else if guestInstalled { download() }  // installed before checksums existed: verify first
+        else { state = .needsDownload(error: nil) }
     }
 
     func start() {
@@ -56,7 +60,8 @@ final class VM: ObservableObject {
         }
         let consolePath = tmp.appendingPathComponent("c").path
         let resizePath = tmp.appendingPathComponent("r").path
-        let args = arguments(console: consolePath, resize: resizePath)
+        let serialPath = tmp.appendingPathComponent("s").path
+        let args = arguments(console: consolePath, resize: resizePath, serial: serialPath)
         let dylib = Bundle.main.privateFrameworksPath! + "/qemu-aarch64-softmmu.framework/qemu-aarch64-softmmu"
         var cargs = args.map { strdup($0) }
         defer { cargs.forEach { free($0) } }
@@ -73,6 +78,13 @@ final class VM: ObservableObject {
         }
         Thread.detachNewThread { self.pump(path: consolePath) }
         Thread.detachNewThread { self.handshake(path: resizePath) }
+        Thread.detachNewThread { self.serialLog(path: serialPath) }
+        bootStarted = Date()
+        // earlycon prints within a second even under TCG: total silence means the CPU loop isn't running.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 45) {
+            guard self.state == .booting, self.bootLog.isEmpty else { return }
+            self.state = .stopped("Ядро не написало ни строчки за 45 секунд. Скорее всего, JIT не работает на этой версии iOS (или StikDebug отключился от приложения). Пришли скрин этого экрана и ArchPrt → boot.log из «Файлов».")
+        }
     }
 
     func write(_ bytes: ArraySlice<UInt8>) {
@@ -94,7 +106,7 @@ final class VM: ObservableObject {
         if try disk.seekToEnd() < 16 << 30 { try disk.truncate(atOffset: 16 << 30) }
     }
 
-    private func arguments(console: String, resize: String) -> [String] {
+    private func arguments(console: String, resize: String, serial: String) -> [String] {
         let cores = min(ProcessInfo.processInfo.activeProcessorCount, 4)
         return [
             "qemu-system-aarch64",
@@ -109,8 +121,10 @@ final class VM: ObservableObject {
             "-nodefaults", "-no-user-config", "-display", "none", "-monitor", "none",
             "-kernel", docs.appendingPathComponent("Image").path,
             "-initrd", docs.appendingPathComponent("initramfs.img").path,
-            "-append", "root=/dev/vda rw rootwait console=ttyAMA0 console=hvc0 loglevel=6 systemd.show_status=1",
-            "-serial", "file:" + docs.appendingPathComponent("boot.log").path,
+            // earlycon: kernel output from the first instruction on; ttyAMA0 last = /dev/console, so systemd's status goes there too.
+            "-append", "root=/dev/vda rw rootwait earlycon=pl011,0x9000000 console=hvc0 console=ttyAMA0 loglevel=6 systemd.show_status=1",
+            "-chardev", "socket,id=ser,path=\(serial),server=on,wait=off",
+            "-serial", "chardev:ser",
             "-device", "virtio-serial-pci",
             "-chardev", "socket,id=con,path=\(console),server=on,wait=off",
             "-device", "virtconsole,chardev=con",
@@ -154,7 +168,8 @@ final class VM: ObservableObject {
         if let out = onOutput { out(chunk[...]) } else { pending += chunk }
     }
 
-    /// While booting, output goes to the loading screen; the terminal starts right after agetty's autologin line.
+    /// While booting, hvc0 only waits for agetty's autologin line; the terminal starts right after it.
+    /// (Boot messages come from the serial port, see serialLog.)
     private func bootOutput(_ chunk: [UInt8]) {
         let window = markerTail + chunk
         if let hit = window.firstRange(of: VM.loginMarker) {
@@ -163,9 +178,26 @@ final class VM: ObservableObject {
             return
         }
         markerTail = Array(window.suffix(VM.loginMarker.count))
-        let text = String(decoding: chunk, as: UTF8.self)
-            .replacingOccurrences(of: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]|\u{1B}\\][^\u{7}]*\u{7}|\r", with: "", options: .regularExpression)
-        bootLog = String((bootLog + text).suffix(12_000))
+    }
+
+    /// ttyAMA0: kernel + systemd boot output, live on the loading screen and saved to Documents/boot.log.
+    private func serialLog(path: String) {
+        let fd = connect(path)
+        guard fd >= 0 else { return }
+        let logURL = docs.appendingPathComponent("boot.log")
+        FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        let log = try? FileHandle(forWritingTo: logURL)
+        var buf = [UInt8](repeating: 0, count: 16384)
+        while true {
+            let n = read(fd, &buf, buf.count)
+            if n <= 0 { break }
+            let chunk = Data(buf[0..<n])
+            try? log?.write(contentsOf: chunk)
+            let text = String(decoding: chunk, as: UTF8.self)
+                .replacingOccurrences(of: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]|\u{1B}\\][^\u{7}]*\u{7}|\r", with: "", options: .regularExpression)
+            DispatchQueue.main.async { self.bootLog = String((self.bootLog + text).suffix(12_000)) }
+        }
+        try? log?.close()
     }
 
     /// The guest's archprt-resize asks ("?") whenever it (re)starts; we answer with the terminal size.

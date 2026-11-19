@@ -52,9 +52,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           KEY: guest-${{ hashFiles('guest/build.sh', 'guest/setup.sh', 'guest/files/**') }}
         run: |
-          if [ "$(gh release download guest -p version.txt -O - 2>/dev/null)" = "$KEY" ]; then echo "guest release is current"; exit 0; fi
+          if [ "$(gh release download guest -p version.txt -O - 2>/dev/null)" = "$KEY" ] && gh release view guest --json assets -q '.assets[].name' | grep -qx MANIFEST; then echo "guest release is current"; exit 0; fi
           mkdir pub
           for f in Image initramfs.img arch.img; do xz -T1 -6 -c "out/$f" > "pub/$f.xz"; done
+          # "sha256 size name" per unpacked file; the app checks downloads (and older installs) against it.
+          for f in Image initramfs.img arch.img; do echo "$(sha256sum < "out/$f" | cut -d' ' -f1) $(stat -c %s "out/$f") $f"; done > pub/MANIFEST
+          cat pub/MANIFEST
           echo "$KEY" > pub/version.txt
           ls -lh pub
           gh release view guest >/dev/null 2>&1 || gh release create guest --prerelease --title "Arch guest" --notes "Arch Linux ARM disk for ArchPrt, downloaded by the app."

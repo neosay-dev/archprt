@@ -66,7 +66,12 @@ private struct Booting: View {
             HStack(spacing: 10) {
                 Text("ArchPrt").font(.system(size: 28, weight: .semibold))
                 Spacer()
-                ProgressView().tint(.secondary)
+                TimelineView(.periodic(from: vm.bootStarted, by: 1)) { ctx in
+                    let t = Int(ctx.date.timeIntervalSince(vm.bootStarted))
+                    Text(String(format: "%d:%02d", t / 60, t % 60))
+                        .font(.body.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
             // Live kernel/systemd output from the guest console, newest at the bottom.
             ScrollViewReader { proxy in
