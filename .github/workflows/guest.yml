@@ -34,7 +34,8 @@ jobs:
 
       - name: Boot test (same QEMU arguments as the app)
         run: |
-          sudo apt-get install -yq qemu-system-arm
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends qemu-system-arm
           python3 guest/smoke.py out
 
       - name: Boot log
